@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.graticule {
+  fill: none;
+  stroke: #777;
+  stroke-width: .5px;
+  stroke-opacity: .5;
+}
+
+.land {
+  fill: #D7CCC8;
+}
+
+.boundary {
+  fill: none;
+  stroke: #fff;
+  stroke-width: .5px;
+}
+
+.float {
+/*  fill: red;*/
+  opacity: 0.8;
+}
+
+
+div.tooltip { 
+    position: absolute;     
+    text-align: left;     
+    width: 150px;         
+    height: 50px;         
+    padding: 5px;       
+    font: 8px sans-serif;   
+    background: lightsteelblue; 
+    border: 0px;    
+    border-radius: 8px;     
+}
+
+.svg-container {
+    display: inline-block;
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%; /* aspect ratio */
+    vertical-align: top;
+    overflow: hidden;
+}
+.svg-content-responsive {
+    display: inline-block;
+    position: absolute;
+    top: 10px;
+    left: 0;
+}
+
+</style>
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script src="//d3js.org/topojson.v1.min.js"></script>
+<script>
+
+var width = window.innerWidth,
+    height = window.innerHeight;
+
+var projection = d3.geo.stereographic()
+    .scale(500)
+    .translate([width / 2, height / 2])
+    .rotate([0, 90])
+    .clipAngle(180 - 1e-4)
+    .clipExtent([[0, 0], [width, height]])
+    .precision(.1);
+
+var path = d3.geo.path()
+    .projection(projection);
+
+var graticule = d3.geo.graticule();
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+svg.append("path")
+    .datum(graticule)
+    .attr("class", "graticule")
+    .attr("d", path);
+		
+var dateformat = d3.time.format("%m/%d/%Y");
+
+var today = new Date();
+var current = d3.time.day.offset(today, -30);
+
+
+d3.json("./world-110m.json", function(error, world) {
+  if (error) throw error;
+  
+  // First, add the background map
+
+  svg.insert("path", ".graticule")
+      .datum(topojson.feature(world, world.objects.land))
+      .attr("class", "land")
+      .attr("d", path);
+
+  svg.insert("path", ".graticule")
+      .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
+      .attr("class", "boundary")
+      .attr("d", path);
+      
+
+	  var filenames = [
+	'5146SoOcn',
+	'5426DRAKEPASS',
+	'6091SoOcn',
+	'7552SoOcn'
+	];
+
+	// var filenames = ['smalltest'];
+
+
+  var loc="http://www3.mbari.org/lobo/Data/FloatVizData/"
+  // var loc="./floatdata/"
+	
+
+	// Hover text setup
+
+	var div = d3.select("body").append("div")
+	  .attr("class", "tooltip")
+	  .style("opacity", 0);
+	
+	// Plot floats function
+	
+	function myFunc(txt) {
+		
+    // Clean up files: remove comment lines and all the ridiculous
+    // characters from the headers, then parse into object
+
+    var firstEOL = txt.indexOf('\n');
+    txt = txt.substring(firstEOL+1).replace(/\[[^\]]+\]/g, '');
+    txt = txt.replace(/ /g, '');
+		txt = txt.replace("mon/day/yr", "date");
+    var alldata = d3.tsv.parse(txt);
+		
+    // filter missing data
+    
+    alldata = alldata.filter(function(d){return d.Lat !== "";})
+    var lastpoint = [alldata[alldata.length-1]]
+		
+    // Add float path
+    
+		var links = [];
+		for(var i=0, len=alldata.length-1; i<len; i++){
+		    // (note: loop until length - 1 since we're getting the next
+		    //  item with i+1)
+		        links.push({
+		            type: "LineString",
+		            coordinates: [
+		                [ alldata[i].Lon, alldata[i].Lat ],
+		                [ alldata[i+1].Lon, alldata[i+1].Lat ]
+		            ]
+		        });
+		    }
+				
+		// Standard enter / update 
+		var pathArcs = svg.selectAll(".arc" + alldata[0].Cruise)
+		    .data(links);
+
+		//enter
+		pathArcs.enter()
+		    .append("path").attr({
+		        'class': 'arc'
+		    }).style({ 
+		        fill: 'none',
+		    });
+
+		//update
+		pathArcs.attr({
+		        //d is the points attribute for this path, we'll draw
+		        //  an arc between the points using the arc function
+		        d: path
+		    })
+		    .style({
+		        stroke: '#bdc3c7',
+		        'stroke-width': '1px'
+		    })
+		
+		// Float path dots
+		
+    svg.selectAll(".floatpath" + alldata[0].Cruise)
+        .data(alldata)
+      .enter().append("circle")
+        .attr("r", 0.5)
+        .attr("class", "floatpath")
+        .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")"; });
+		
+    // Add float marker with popup data
+    
+		
+    svg.selectAll(".float" + alldata[0].Cruise)
+      .data(lastpoint)
+    .enter().append("circle")
+      .attr("r", 5)
+      .attr("class", "float")
+      .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")";})
+			.style("fill", function(d) {return dateformat.parse(d.date) < current ? "cyan" : "red"; })
+      .on("mouseover",
+        function(d) {
+          div.transition()
+             .duration(500)
+             .style("opacity", 0);
+          div.transition()
+             .duration(200)
+             .style("opacity", .9);
+          div.html('Name: ' + d.Cruise + "<br>" +
+                   '<a href= "http://www3.mbari.org/lobo/Data/FloatVizData/' + d.Cruise + '.txt">Download data' + // The first <a> tag
+                   "</a>" +                         
+                   "<br/>" + "Most recent lat: " + d.Lat +
+                   "<br/>" + "Most recent lon: " + d.Lon +
+								   "<br/>" + "Most recent date: " + d.date)
+            .style("left", (d3.event.pageX) + "px")
+            .style("top", (d3.event.pageY - 28) + "px")
+          });
+				console.log(lastpoint[0].Cruise)
+	}
+	
+	// Loop over files
+		 
+	filenames.forEach(function(floatname) {
+		d3.xhr(loc + floatname + ".txt").get(function (err, response) {
+			var txt = response.responseText;
+		 	myFunc(txt)
+		});
+	});	 
+
+   
+  d3.select(self.frameElement).style("height", height + "px");
+
+});
+
+
+</script>
+
+<!-- '0068RossSea',
+'6968SoOcn',
+'7552SoOcn',
+'7619SoOcn',
+'7620SoOcn',
+'6091SoOcn',
+'7557SoOcn',
+'7567SoOcn',
+'7613SoOcn',
+'7614SoOcn',
+'9091SoOcn',
+'9092SoOcn',
+'9031SoOcn',
+'9018SoOcn',
+'9095SoOcn',
+'9101SoOcn',
+'9254SoOcn',
+'9313SoOcn',
+'0508SoOcn',
+'9096SoOcn',
+'0509SoOcn',
+'7652SoOcn',
+'0511SoOcn',
+'9094SoOcn',
+'9275SoOcn',
+'9099SoOcn',
+'9260SoOcn',
+'9125SoOcn',
+'9668SoOcn',
+'9666SoOcn',
+'9646SoOcn',
+'9652SoOcn',
+'9657SoOcn',
+'9655SoOcn',
+'9662SoOcn',
+'9749SoOcn',
+'9645SoOcn',
+'9757SoOcn',
+'0506SoOcn',
+'0507SoOcn',
+'0564SoOcn',
+'0510SoOcn',
+   '9602SoOcn' -->
+

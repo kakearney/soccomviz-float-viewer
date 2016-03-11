@@ -21,36 +21,29 @@
 
 .float {
 /*  fill: red;*/
-  opacity: 0.8;
+  opacity: 0.5;
 }
 
+.arc {
+	stroke: #bdc3c7;
+	stroke-width: 1px;
+}  
 
 div.tooltip { 
-    position: absolute;     
+    position: fixed;
+		bottom: 0;
+		left: 0;     
     text-align: left;     
-    width: 150px;         
-    height: 50px;         
-    padding: 5px;       
-    font: 8px sans-serif;   
+    width: 200px;         
+    height: 100px;         
+    padding: 10px;       
+    font: 12px sans-serif;   
     background: lightsteelblue; 
     border: 0px;    
-    border-radius: 8px;     
+    border-radius: 8px
+		;     
 }
 
-.svg-container {
-    display: inline-block;
-    position: relative;
-    width: 100%;
-    padding-bottom: 100%; /* aspect ratio */
-    vertical-align: top;
-    overflow: hidden;
-}
-.svg-content-responsive {
-    display: inline-block;
-    position: absolute;
-    top: 10px;
-    left: 0;
-}
 
 </style>
 <body>
@@ -58,28 +51,54 @@ div.tooltip {
 <script src="//d3js.org/topojson.v1.min.js"></script>
 <script>
 
+// This function prepares a map of the SOCCOM float locations, based on
+// data pulled from the SOCCOM server (http://www3.mbari.org/SOCCOM/). 
+//	
+// Currently using local copies of those files, due to mixed content 
+// issues when trying to pull directly from the MBARI server... will need 
+// to fix that.
+//	
+// This prototype written by Kelly Kearney, March 2016
+
+//---------------
+// Setup
+//---------------
+
 var width = window.innerWidth,
-    height = window.innerHeight;
+    height = window.innerHeight,
+		scale0 = 700;
 
 var projection = d3.geo.stereographic()
-    .scale(500)
+    .scale(scale0)
     .translate([width / 2, height / 2])
     .rotate([0, 90])
     .clipAngle(180 - 1e-4)
     .clipExtent([[0, 0], [width, height]])
     .precision(.1);
-
+		
+var zoom = d3.behavior.zoom()
+    .translate([width / 2, height / 2])
+    .scale(scale0)
+    .scaleExtent([100, 3000])
+    .on("zoom", zoomed);		
+		
 var path = d3.geo.path()
     .projection(projection);
 
 var graticule = d3.geo.graticule();
 
-
 var svg = d3.select("body").append("svg")
     .attr("width", width)
-    .attr("height", height);
+    .attr("height", height)
+  .append("g");
 
-svg.append("path")
+var g = svg.append("g");
+
+svg
+    .call(zoom)
+    .call(zoom.event);
+
+g.append("path")
     .datum(graticule)
     .attr("class", "graticule")
     .attr("d", path);
@@ -89,31 +108,68 @@ var dateformat = d3.time.format("%m/%d/%Y");
 var today = new Date();
 var current = d3.time.day.offset(today, -30);
 
+//---------------
+// Some functions
+//---------------
+
+// Function to eliminate duplicate points
+
+function uniq(a) {
+    var seen = {};
+    return a.filter(function(item) {
+        return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+    });
+}
+
+// Zoom and pan function
+
+function zoomed() {
+  projection
+      .translate(zoom.translate())
+      .scale(zoom.scale());
+
+  g.selectAll("path")
+      .attr("d", path);
+			
+	g.selectAll("circle")
+			.attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")";})
+			
+}
+
+//---------------
+// Main plotting
+//---------------
+
+// Load map data first, after that loads load float data
 
 d3.json("./world-110m.json", function(error, world) {
   if (error) throw error;
   
   // First, add the background map
 
-  svg.insert("path", ".graticule")
+  g.insert("path", ".graticule")
       .datum(topojson.feature(world, world.objects.land))
       .attr("class", "land")
       .attr("d", path);
 
-  svg.insert("path", ".graticule")
+  g.insert("path", ".graticule")
       .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
       .attr("class", "boundary")
       .attr("d", path);
       
 
-	  var filenames = [
-	'5146SoOcn',
-	'5426DRAKEPASS',
-	'6091SoOcn',
-	'7552SoOcn'
-	];
+  // SOCCOM float names
 
-	// var filenames = ['smalltest'];
+  var filenames = [
+    '0037SoOcn'  ,'5146SoOcn'    ,'7619SoOcn', '9095SoOcn', '9602SoOcn', '9668SoOcn',
+    '0068RossSea','5426DRAKEPASS','7620SoOcn', '9096SoOcn', '9637SoOcn', '9749SoOcn',
+    '0506SoOcn'  ,'6091SoOcn'    ,'7652SoOcn', '9099SoOcn', '9645SoOcn', '9757SoOcn',
+    '0507SoOcn'  ,'6968SoOcn'    ,'8514SoOcn', '9101SoOcn', '9650SoOcn',
+    '0508SoOcn'  ,'7552SoOcn'    ,'9018SoOcn', '9125SoOcn', '9652SoOcn',
+    '0509SoOcn'  ,'7557SoOcn'    ,'9031SoOcn', '9254SoOcn', '9655SoOcn',
+    '0510SoOcn'  ,'7567SoOcn'    ,'9091SoOcn', '9260SoOcn', '9657SoOcn',
+    '0511SoOcn'  ,'7613SoOcn'    ,'9092SoOcn', '9275SoOcn', '9662SoOcn',
+    '0564SoOcn'  ,'7614SoOcn'    ,'9094SoOcn', '9313SoOcn', '9666SoOcn'];
 
 
   var loc="http://www3.mbari.org/lobo/Data/FloatVizData/"
@@ -124,9 +180,13 @@ d3.json("./world-110m.json", function(error, world) {
 
 	var div = d3.select("body").append("div")
 	  .attr("class", "tooltip")
-	  .style("opacity", 0);
+	  .style("opacity", 1)
+	  .html('<b>Float information</b><br/>');
+		
 	
+	//---------------------
 	// Plot floats function
+	//---------------------
 	
 	function myFunc(txt) {
 		
@@ -141,85 +201,95 @@ d3.json("./world-110m.json", function(error, world) {
 		
     // filter missing data
     
-    alldata = alldata.filter(function(d){return d.Lat !== "";})
+    alldata = alldata.filter(function(d){return d.Lat !== "" & d.Lat !=="NaN";})
     var lastpoint = [alldata[alldata.length-1]]
 		
-    // Add float path
+		// group float objects (circle, path, dots) together
+		// Note: this was originally intended to link the mouseover/out 
+		// callback, which didn't work, but I've left this in anyway
+		
+		var fgroup = g.append("g");
+		
+    // Add float path as line
     
+		var coords = [];
+		for(var i=0, len=alldata.length-1; i<=len; i++){
+			coords.push([alldata[i].Lon, alldata[i].Lat]);
+		}
+		
 		var links = [];
-		for(var i=0, len=alldata.length-1; i<len; i++){
-		    // (note: loop until length - 1 since we're getting the next
-		    //  item with i+1)
-		        links.push({
-		            type: "LineString",
-		            coordinates: [
-		                [ alldata[i].Lon, alldata[i].Lat ],
-		                [ alldata[i+1].Lon, alldata[i+1].Lat ]
-		            ]
-		        });
-		    }
-				
-		// Standard enter / update 
-		var pathArcs = svg.selectAll(".arc" + alldata[0].Cruise)
-		    .data(links);
+		links.push({
+			type: "LineString",
+			coordinates: coords,
+			Cruise: alldata[0].Cruise
+		});
 
-		//enter
-		pathArcs.enter()
-		    .append("path").attr({
-		        'class': 'arc'
-		    }).style({ 
-		        fill: 'none',
-		    });
+		var pathArcs = fgroup.selectAll(".arc" + alldata[0].Cruise)
+		      .data(links)
+				.enter().append("path")
+				  .attr("class", function(d) {return "arc x" + d.Cruise;})
+				  .style("fill", 'none')
+				  .attr("d", path);
+		
+		
+		// Mouseover/out functions
+		
+		function over(d) {
+			
+			// Set the text in the info div
 
-		//update
-		pathArcs.attr({
-		        //d is the points attribute for this path, we'll draw
-		        //  an arc between the points using the arc function
-		        d: path
-		    })
-		    .style({
-		        stroke: '#bdc3c7',
-		        'stroke-width': '1px'
-		    })
+			div.html('<b>Float information</b><br/>' +
+				       'Name: ' + d.Cruise + "<br>" +
+			         '<a href= "http://www3.mbari.org/lobo/Data/FloatVizData/' + d.Cruise + '.txt">Download data' + // The first <a> tag
+			         "</a>" +                         
+			         "<br/>" + "Most recent lat: " + d.Lat +
+			         "<br/>" + "Most recent lon: " + d.Lon +
+						   "<br/>" + "Most recent date: " + d.date)
+				 
+		  // Change appearance of line, dots, and circle of selected float
+							 
+			d3.selectAll(".x" + d.Cruise).filter(".float").attr("r", 10);
+			d3.selectAll(".x" + d.Cruise).filter(".arc").style("stroke-width", "3px");
+			d3.selectAll(".x" + d.Cruise).filter(".floatpath").attr("r", 1);
+		}
+		
+		function out(d) {
+			d3.selectAll(".x" + d.Cruise).filter(".float").attr("r", 5);
+			d3.selectAll(".x" + d.Cruise).filter(".arc").style("stroke-width", "1px");
+			d3.selectAll(".x" + d.Cruise).filter(".floatpath").attr("r", 0.5);
+		}
 		
 		// Float path dots
+					
+		var uniqcoords = uniq(coords);
+
+		var uniqdata = []; // to lighten the rendering load, remove duplicate points
+		for (var i=0, len=uniqcoords.length-1; i<=len; i++){
+			uniqdata.push(alldata[coords.indexOf(uniqcoords[i])]); 
+		}
 		
-    svg.selectAll(".floatpath" + alldata[0].Cruise)
-        .data(alldata)
+    var pathDots = fgroup.selectAll(".floatpath" + alldata[0].Cruise)
+        .data(uniqdata)
       .enter().append("circle")
         .attr("r", 0.5)
-        .attr("class", "floatpath")
-        .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")"; });
-		
+        .attr("class", function(d) {return "floatpath x" + d.Cruise;})
+        .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")"; })
+        .on("mouseover", over)
+		    .on("mouseout", out);
+				
     // Add float marker with popup data
-    
 		
-    svg.selectAll(".float" + alldata[0].Cruise)
-      .data(lastpoint)
-    .enter().append("circle")
-      .attr("r", 5)
-      .attr("class", "float")
-      .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")";})
-			.style("fill", function(d) {return dateformat.parse(d.date) < current ? "cyan" : "red"; })
-      .on("mouseover",
-        function(d) {
-          div.transition()
-             .duration(500)
-             .style("opacity", 0);
-          div.transition()
-             .duration(200)
-             .style("opacity", .9);
-          div.html('Name: ' + d.Cruise + "<br>" +
-                   '<a href= "http://www3.mbari.org/lobo/Data/FloatVizData/' + d.Cruise + '.txt">Download data' + // The first <a> tag
-                   "</a>" +                         
-                   "<br/>" + "Most recent lat: " + d.Lat +
-                   "<br/>" + "Most recent lon: " + d.Lon +
-								   "<br/>" + "Most recent date: " + d.date)
-            .style("left", (d3.event.pageX) + "px")
-            .style("top", (d3.event.pageY - 28) + "px")
-          });
-				console.log(lastpoint[0].Cruise)
-	}
+    var floatCirc = fgroup.selectAll(".float" + alldata[0].Cruise)
+        .data(lastpoint)
+      .enter().append("circle")
+        .attr("r", 5)
+        .attr("class", function(d) {return "float x" + d.Cruise;})
+        .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")";})
+			  .style("fill", function(d) {return dateformat.parse(d.date) < current ? "cyan" : "red"; })
+        .on("mouseover", over)
+		    .on("mouseout", out);
+				
+	} // End plot floats function
 	
 	// Loop over files
 		 
@@ -230,55 +300,12 @@ d3.json("./world-110m.json", function(error, world) {
 		});
 	});	 
 
-   
-  d3.select(self.frameElement).style("height", height + "px");
-
 });
+
+
+d3.select(self.frameElement).style("height", height + "px");
 
 
 </script>
 
-<!-- '0068RossSea',
-'6968SoOcn',
-'7552SoOcn',
-'7619SoOcn',
-'7620SoOcn',
-'6091SoOcn',
-'7557SoOcn',
-'7567SoOcn',
-'7613SoOcn',
-'7614SoOcn',
-'9091SoOcn',
-'9092SoOcn',
-'9031SoOcn',
-'9018SoOcn',
-'9095SoOcn',
-'9101SoOcn',
-'9254SoOcn',
-'9313SoOcn',
-'0508SoOcn',
-'9096SoOcn',
-'0509SoOcn',
-'7652SoOcn',
-'0511SoOcn',
-'9094SoOcn',
-'9275SoOcn',
-'9099SoOcn',
-'9260SoOcn',
-'9125SoOcn',
-'9668SoOcn',
-'9666SoOcn',
-'9646SoOcn',
-'9652SoOcn',
-'9657SoOcn',
-'9655SoOcn',
-'9662SoOcn',
-'9749SoOcn',
-'9645SoOcn',
-'9757SoOcn',
-'0506SoOcn',
-'0507SoOcn',
-'0564SoOcn',
-'0510SoOcn',
-   '9602SoOcn' -->
 

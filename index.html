@@ -176,6 +176,29 @@ d3.json("./world-110m.json", function(error, world) {
   var loc="./"
   // var loc="./floatdata/"
 	
+	// Median sea ice 
+	
+	d3.csv("./median_seaice.csv", function(data) {
+		var icecoords = [];
+		for(var i=0, len=data.length-1; i<=len; i++){
+			icecoords.push([data[i].Lon, data[i].Lat]);
+		}
+		
+		var icepoly = [];
+		icepoly.push({
+			type: "LineString",
+			coordinates: icecoords,
+		});
+		
+		var iceArcs = g.selectAll(".ice")
+		      .data(icepoly)
+				.enter().append("path")
+				  .style("fill", "none")
+		      .style("stroke", "#ADD8E6")
+				  .style("stroke-width", 2)
+		      .attr("d", path);
+	});
+	
 
 	// Hover text setup
 

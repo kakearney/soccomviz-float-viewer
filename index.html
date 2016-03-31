@@ -38,10 +38,17 @@ div.tooltip {
     height: 100px;         
     padding: 10px;       
     font: 12px sans-serif;   
-    background: lightsteelblue; 
-    border: 0px;    
+    background: white; 
+    border: 2px solid #F49131;    
     border-radius: 8px
 		;     
+}
+
+div.legenddiv {
+	position: fixed;
+	top: 0;
+	left: 0;
+	border: 1px;
 }
 
 
@@ -194,8 +201,8 @@ d3.json("./world-110m.json", function(error, world) {
 		      .data(icepoly)
 				.enter().append("path")
 				  .style("fill", "none")
-		      .style("stroke", "#ADD8E6")
-				  .style("stroke-width", 2)
+		      .style("stroke", "#A9CCE3")
+				  .style("stroke-width", 1)
 		      .attr("d", path);
 	});
 	
@@ -206,6 +213,12 @@ d3.json("./world-110m.json", function(error, world) {
 	  .attr("class", "tooltip")
 	  .style("opacity", 1)
 	  .html('<b>Float information</b><br/>');
+		
+  // Add legend to an unmoving div in the upper left
+		
+	var divleg = d3.select("body").append("div")
+		.attr("class", "legenddiv")
+		.html('<img src="soccomlogohomepage_106.png" height="50">');
 		
 	
 	//---------------------
@@ -309,7 +322,7 @@ d3.json("./world-110m.json", function(error, world) {
         .attr("r", 5)
         .attr("class", function(d) {return "float x" + d.Cruise;})
         .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")";})
-			  .style("fill", function(d) {return dateformat.parse(d.date) < current ? "cyan" : "red"; })
+			  .style("fill", function(d) {return dateformat.parse(d.date) < current ? "#25B0D3" : "#F49131"; })
         .on("mouseover", over)
 		    .on("mouseout", out);
 				

@@ -29,33 +29,81 @@
 	stroke-width: 1px;
 }  
 
-div.tooltip { 
+#tooltip { 
     position: fixed;
 		bottom: 0;
 		left: 0;     
     text-align: left;     
-    width: 200px;         
-    height: 100px;         
+    width: 160px;         
+    height: 145px;         
     padding: 10px;       
     font: 12px sans-serif;   
     background: white; 
-    border: 2px solid #F49131;    
-    border-radius: 8px
-		;     
+    border: 2px solid #0D5B85;    
+    border-radius: 8px;
+		opacity: 0.8; 
 }
 
-div.legenddiv {
+#soccomlogo {
 	position: fixed;
 	top: 0;
 	left: 0;
 	border: 1px;
 }
 
+#legend {
+	position: fixed;
+	top: 50px;
+	left: 0;
+	font: 12px sans-serif; 
+	pointer-events: none; 
+}
+
+a:link {
+	color: #1585AC;
+}
+
+a:visited {
+	color: #1585AC;
+}
+
+h1 {
+	margin-top: 0;
+	color: #0D5B85;
+	font-size: 1em;
+}
 
 </style>
+
 <body>
+	
+<!-- Main map -->
+
+<div id="main"></div>
+
+<!-- SOCCOM Logo (upper left) -->
+
+<div id="soccomlogo">
+	<img src="soccomlogohomepage_106.png" height="50">
+</div>
+
+<!-- Legend -->
+
+<div id="legend">
+</div>
+
+<!-- Float data details -->
+
+<div id="tooltip">
+	<h1>Float name (hover)</h4>
+	<p id="hover">Hover over a float for name</p>
+	<h1>Float data (click)</h4>
+		<div id="click">Click on a float for data</div>
+</div>
+	
 <script src="//d3js.org/d3.v3.min.js"></script>
 <script src="//d3js.org/topojson.v1.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/d3-legend/1.9.0/d3-legend.js"></script>
 <script>
 
 // This function prepares a map of the SOCCOM float locations, based on
@@ -86,7 +134,7 @@ var projection = d3.geo.stereographic()
 var zoom = d3.behavior.zoom()
     .translate([width / 2, height / 2])
     .scale(scale0)
-    .scaleExtent([100, 3000])
+    .scaleExtent([50, 3000])
     .on("zoom", zoomed);		
 		
 var path = d3.geo.path()
@@ -128,7 +176,8 @@ function uniq(a) {
     });
 }
 
-// Zoom and pan function
+// Zoom and pan function 
+// (Note: a bit laggy... possibly try a version that doesn't reproject?)
 
 function zoomed() {
   projection
@@ -181,7 +230,6 @@ d3.json("./world-110m.json", function(error, world) {
 
   // var loc="http://www3.mbari.org/lobo/Data/FloatVizData/"
   var loc="./"
-  // var loc="./floatdata/"
 	
 	// Median sea ice 
 	
@@ -202,24 +250,31 @@ d3.json("./world-110m.json", function(error, world) {
 				.enter().append("path")
 				  .style("fill", "none")
 		      .style("stroke", "#A9CCE3")
-				  .style("stroke-width", 1)
-		      .attr("d", path);
+				  .style("stroke-width", 2)
+		      .attr("d", path)
+				  .text("Median ice extent");
 	});
 	
+		
+  // Add legend markers and labels
+		
+	var ordinal = d3.scale.ordinal()
+	  .domain(["Active float", "Inactive float"])
+	  .range([ "#F49131", "#25B0D3"]);
 
-	// Hover text setup
+	var svg = d3.select("#legend").append("svg");
 
-	var div = d3.select("body").append("div")
-	  .attr("class", "tooltip")
-	  .style("opacity", 1)
-	  .html('<b>Float information</b><br/>');
-		
-  // Add legend to an unmoving div in the upper left
-		
-	var divleg = d3.select("body").append("div")
-		.attr("class", "legenddiv")
-		.html('<img src="soccomlogohomepage_106.png" height="50">');
-		
+	svg.append("g")
+	  .attr("class", "legendOrdinal")
+	  .attr("transform", "translate(20,20)");
+
+	var legendOrdinal = d3.legend.color()
+	  .shape("path", d3.svg.symbol().type("circle").size(100)())
+	  .shapePadding(10)
+	  .scale(ordinal);
+
+	svg.select(".legendOrdinal")
+	  .call(legendOrdinal);
 	
 	//---------------------
 	// Plot floats function
@@ -273,15 +328,10 @@ d3.json("./world-110m.json", function(error, world) {
 		
 		function over(d) {
 			
-			// Set the text in the info div
+			// Set the text in the float data div
 
-			div.html('<b>Float information</b><br/>' +
-				       'Name: ' + d.Cruise + "<br>" +
-			         '<a href= "http://www3.mbari.org/lobo/Data/FloatVizData/' + d.Cruise + '.txt">Download data' + // The first <a> tag
-			         "</a>" +                         
-			         "<br/>" + "Most recent lat: " + d.Lat +
-			         "<br/>" + "Most recent lon: " + d.Lon +
-						   "<br/>" + "Most recent date: " + d.date)
+      d3.select("#hover")
+			.text(d.Cruise)
 				 
 		  // Change appearance of line, dots, and circle of selected float
 							 
@@ -294,6 +344,19 @@ d3.json("./world-110m.json", function(error, world) {
 			d3.selectAll(".x" + d.Cruise).filter(".float").attr("r", 5);
 			d3.selectAll(".x" + d.Cruise).filter(".arc").style("stroke-width", "1px");
 			d3.selectAll(".x" + d.Cruise).filter(".floatpath").attr("r", 0.5);
+		}
+		
+		function click(d) {
+			// Change text/links/etc. in float data div
+			d3.select("#click")
+			.html('Name: ' + d.Cruise + "<br>" +
+			         'Download data: <a href= "http://www3.mbari.org/lobo/Data/FloatVizData/' + d.Cruise + '.txt">Raw' + // The first <a> tag
+			         "</a>" +
+			         ', <a href= "http://www3.mbari.org/lobo/Data/FloatVizData/' + d.Cruise + 'QC.txt">QC' + // The first <a> tag
+			         "</a>" +
+			         "<br/>" + "Most recent lat: " + d.Lat +
+			         "<br/>" + "Most recent lon: " + d.Lon +
+						   "<br/>" + "Most recent date: " + d.date)
 		}
 		
 		// Float path dots
@@ -312,7 +375,8 @@ d3.json("./world-110m.json", function(error, world) {
         .attr("class", function(d) {return "floatpath x" + d.Cruise;})
         .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")"; })
         .on("mouseover", over)
-		    .on("mouseout", out);
+		    .on("mouseout", out)
+		    .on("click", click);
 				
     // Add float marker with popup data
 		
@@ -324,7 +388,8 @@ d3.json("./world-110m.json", function(error, world) {
         .attr("transform", function(d) {return "translate(" + projection([d.Lon,d.Lat]) + ")";})
 			  .style("fill", function(d) {return dateformat.parse(d.date) < current ? "#25B0D3" : "#F49131"; })
         .on("mouseover", over)
-		    .on("mouseout", out);
+		    .on("mouseout", out)
+				.on("click", click);
 				
 	} // End plot floats function
 	
@@ -339,9 +404,7 @@ d3.json("./world-110m.json", function(error, world) {
 
 });
 
-
 d3.select(self.frameElement).style("height", height + "px");
-
 
 </script>
 

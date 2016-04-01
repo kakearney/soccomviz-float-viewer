@@ -248,7 +248,8 @@ d3.json("./world-110m.json", function(error, world) {
 		var iceArcs = g.selectAll(".ice")
 		      .data(icepoly)
 				.enter().append("path")
-				  .style("fill", "none")
+				  .style("fill", "#A9CCE3")
+					.style("opacity", 0.2)
 		      .style("stroke", "#A9CCE3")
 				  .style("stroke-width", 2)
 		      .attr("d", path)
@@ -262,19 +263,29 @@ d3.json("./world-110m.json", function(error, world) {
 	  .domain(["Active float", "Inactive float"])
 	  .range([ "#F49131", "#25B0D3"]);
 
-	var svg = d3.select("#legend").append("svg");
+	var legsvg = d3.select("#legend").append("svg");
 
-	svg.append("g")
-	  .attr("class", "legendOrdinal")
+	legsvg.append("g")
+	  .attr("class", "legendfloat")
 	  .attr("transform", "translate(20,20)");
+		
+	legsvg.append("g")
+		.attr("class", "legice")
+		.attr("transform", "translate(20,50)");
 
-	var legendOrdinal = d3.legend.color()
+	var legendflt = d3.legend.color()
 	  .shape("path", d3.svg.symbol().type("circle").size(100)())
 	  .shapePadding(10)
 	  .scale(ordinal);
+	
+var legendice = d3.legend.color()
+  .shape("path", d3.svg.symbol().type("circle").size(100)())
+  .shapePadding(10)
+  .scale(ordinal);
 
-	svg.select(".legendOrdinal")
-	  .call(legendOrdinal);
+	legsvg.select(".legendfloat")
+	  .call(legendflt);
+	
 	
 	//---------------------
 	// Plot floats function
